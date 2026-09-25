@@ -1,9 +1,0 @@
-{
-  "name": "luffy-ai-studio-backend",
-  "private": true,
-  "version": "1.0.0",
-  "type": "module",
-  "dependencies": {
-    "@fal-ai/client": "^1.6.2"
-  }
-}
