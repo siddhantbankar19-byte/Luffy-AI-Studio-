@@ -4,171 +4,102 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#09090f">
-  <title>Luffy AI Studio</title>
+  <title>Luffy AI Studio Free</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="app-shell">
   <header class="topbar">
-    <div>
-      <div class="eyebrow">PERSONAL AI VIDEO STUDIO</div>
-      <h1>Luffy AI Studio</h1>
-    </div>
-    <button class="icon-btn" onclick="openTab('settings')" aria-label="Settings">⚙</button>
+    <div class="brand"><div class="logo">✦</div><div><strong>Luffy AI Studio</strong><span>Free mobile video maker</span></div></div>
+    <button class="status-pill connected" onclick="openTab('settings')"><i></i><span>Free mode</span></button>
   </header>
 
   <main>
-    <section id="homePage" class="page active">
-      <div class="hero">
-        <div class="glow"></div>
-        <div class="hero-copy">
-          <span class="pill">AI VIDEO • V1</span>
-          <h2>Turn ideas into videos.</h2>
-          <p>Create from text or animate an image, then keep every generation in your personal library.</p>
-          <button class="primary large" onclick="setModeAndOpen('text')">✦ Create video</button>
-        </div>
+    <section class="page active" id="homePage">
+      <div class="hero glass">
+        <div class="eyebrow">NO API • NO CREDITS • MOBILE ONLY</div>
+        <h1>Turn photos into <span>videos.</span></h1>
+        <p>Create short videos from your images with pan & zoom motion, captions, optional background music, and direct on-device export.</p>
+        <button class="primary big" onclick="openTab('create')">✦ Make a free video</button>
       </div>
 
-      <div class="section-head">
-        <h3>Start creating</h3>
+      <div class="section-title"><h2>Free tools</h2></div>
+      <div class="quick-grid single-col">
+        <div class="quick-card"><div class="qicon purple">▧</div><strong>Animated slideshow</strong><span>Turn multiple images into one smooth video.</span></div>
+        <div class="quick-card"><div class="qicon pink">𝄞</div><strong>Music + captions</strong><span>Add your own background music and text overlays.</span></div>
+        <div class="quick-card"><div class="qicon purple">⇩</div><strong>On-device export</strong><span>No backend and no paid AI API.</span></div>
       </div>
 
-      <div class="mode-grid">
-        <button class="mode-card" onclick="setModeAndOpen('text')">
-          <span class="mode-icon">✦</span>
-          <strong>Text → Video</strong>
-          <small>Describe a scene and generate it.</small>
-        </button>
-        <button class="mode-card" onclick="setModeAndOpen('image')">
-          <span class="mode-icon">▧</span>
-          <strong>Image → Video</strong>
-          <small>Upload a photo and animate it.</small>
-        </button>
-      </div>
-
-      <div class="section-head">
-        <h3>Recent generations</h3>
-        <button class="text-btn" onclick="openTab('library')">View all</button>
-      </div>
+      <div class="section-title"><h2>Recent exports</h2><button onclick="openTab('videos')">View all</button></div>
       <div id="recentList" class="generation-list"></div>
     </section>
 
-    <section id="createPage" class="page">
-      <div class="page-title">
-        <button class="back" onclick="openTab('home')">‹</button>
-        <div>
-          <span class="eyebrow">CREATE</span>
-          <h2>New AI video</h2>
-        </div>
-      </div>
+    <section class="page" id="createPage">
+      <div class="page-heading"><h1>Create</h1><p>Pick images, add captions, and export a video.</p></div>
 
-      <div class="segmented">
-        <button id="modeText" class="active" onclick="setMode('text')">Text → Video</button>
-        <button id="modeImage" onclick="setMode('image')">Image → Video</button>
-      </div>
+      <div class="creator-card glass">
+        <label class="field-label">Project title</label>
+        <input class="text-input" id="projectTitle" type="text" maxlength="80" placeholder="My Video Story">
 
-      <div id="imageInputWrap" class="field hidden">
-        <label>Reference image</label>
-        <label class="upload-box">
-          <input id="imageInput" type="file" accept="image/*">
-          <div id="imagePlaceholder">
-            <div class="upload-icon">＋</div>
-            <strong>Choose an image</strong>
-            <small>JPG, PNG or WebP</small>
-          </div>
-          <img id="imagePreview" alt="Preview" class="hidden">
+        <label class="field-label block-gap">Images</label>
+        <input id="imageInput" type="file" accept="image/*" multiple>
+        <label for="imageInput" class="upload-label">
+          <div class="upload-icon">＋</div>
+          <strong>Select photos</strong>
+          <span>Choose multiple images</span>
         </label>
-        <button id="removeImage" class="text-btn hidden" onclick="clearImage()">Remove image</button>
+        <div id="imageSummary" class="mini-note">No images selected</div>
+        <div id="thumbStrip" class="thumb-strip"></div>
+
+        <label class="field-label">Background music (optional)</label>
+        <input id="musicInput" type="file" accept="audio/*">
+        <label for="musicInput" class="upload-label compact-upload">
+          <div class="upload-icon">𝄞</div>
+          <strong>Select audio</strong>
+          <span>MP3, M4A, OGG...</span>
+        </label>
+        <div id="musicSummary" class="mini-note">No music selected</div>
+
+        <label class="field-label block-gap">Captions (optional)</label>
+        <textarea id="captions" maxlength="1200" placeholder="Write one line per scene.&#10;Welcome to our trip&#10;Beautiful sunset view&#10;Best memories together"></textarea>
+        <div class="prompt-tools"><span>One line = one scene</span><button onclick="fillSampleCaptions()">Use sample</button></div>
+
+        <div class="settings-grid">
+          <div class="field"><label>Format</label><select id="aspectRatio"><option value="9:16">9:16 · Vertical</option><option value="16:9">16:9 · Landscape</option><option value="1:1">1:1 · Square</option></select></div>
+          <div class="field"><label>Seconds / scene</label><select id="sceneDuration"><option value="2">2 sec</option><option value="3" selected>3 sec</option><option value="4">4 sec</option></select></div>
+          <div class="field"><label>Resolution</label><select id="resolution"><option value="medium">Medium · Faster</option><option value="high">High · Better</option></select></div>
+        </div>
+
+        <button class="primary generate" id="generateBtn" onclick="exportVideo()">✦ Export free video</button>
+        <p class="cost-note">No credits or API key. Export format depends on Android WebView support.</p>
       </div>
 
-      <div class="field">
-        <div class="field-row">
-          <label for="prompt">Prompt</label>
-          <button class="magic-btn" onclick="enhancePrompt()">✦ Enhance</button>
-        </div>
-        <textarea id="prompt" rows="7" maxlength="1500" placeholder="A tiny astronaut walks through a glowing forest at night, cinematic camera movement, soft fog..."></textarea>
-        <div class="hint">Be specific about subject, motion, camera movement, lighting and mood.</div>
-      </div>
-
-      <div class="control-grid">
-        <div id="aspectField" class="field compact">
-          <label for="aspectRatio">Format</label>
-          <select id="aspectRatio">
-            <option value="9:16">9:16 Vertical</option>
-            <option value="16:9">16:9 Landscape</option>
-            <option value="1:1">1:1 Square</option>
-          </select>
-        </div>
-        <div class="field compact">
-          <label for="duration">Duration</label>
-          <select id="duration">
-            <option value="5">5 seconds</option>
-            <option value="10">10 seconds</option>
-          </select>
-        </div>
-        <div class="field compact">
-          <label for="resolution">Resolution</label>
-          <select id="resolution">
-            <option value="720p">720p</option>
-            <option value="1080p">1080p</option>
-          </select>
-        </div>
-      </div>
-
-      <button id="generateBtn" class="primary generate" onclick="generateVideo()">
-        <span>✦</span> Generate video
-      </button>
-
-      <div class="info-card">
-        <strong>Secure by design</strong>
-        <p>Your AI provider key stays on the backend, never inside the APK.</p>
+      <div class="preview-card glass hidden" id="previewCard">
+        <div class="section-title small-gap"><h2>Preview</h2><button onclick="downloadLastVideo()">Download latest</button></div>
+        <video id="previewVideo" controls playsinline></video>
       </div>
     </section>
 
-    <section id="libraryPage" class="page">
-      <div class="page-title simple">
-        <div>
-          <span class="eyebrow">MY VIDEOS</span>
-          <h2>Generation history</h2>
-        </div>
-        <button class="text-btn" onclick="clearFinished()">Clear finished</button>
-      </div>
-      <div id="libraryList" class="generation-list"></div>
+    <section class="page" id="videosPage">
+      <div class="page-heading inline"><div><h1>My Videos</h1><p>Recent exports from this app session.</p></div><button class="ghost" onclick="clearExports()">Clear</button></div>
+      <div id="libraryList" class="generation-list large"></div>
     </section>
 
-    <section id="settingsPage" class="page">
-      <div class="page-title simple">
-        <div>
-          <span class="eyebrow">SETTINGS</span>
-          <h2>Connection</h2>
-        </div>
-      </div>
-
-      <div class="settings-card">
-        <div id="backendStatus" class="status-dot"><i></i><span>Not connected</span></div>
-        <label for="backendUrl">Backend URL</label>
-        <input id="backendUrl" type="url" inputmode="url" placeholder="https://your-backend.vercel.app">
-        <button class="primary" onclick="saveSettings()">Save connection</button>
-        <p class="small-note">Paste only the HTTPS backend URL. Never paste your AI API key here.</p>
-      </div>
-
-      <div class="settings-card">
-        <h3>About</h3>
-        <div class="about-row"><span>App</span><strong>Luffy AI Studio</strong></div>
-        <div class="about-row"><span>Version</span><strong>1.0.0</strong></div>
-        <div class="about-row"><span>Build</span><strong>Personal</strong></div>
-      </div>
+    <section class="page" id="settingsPage">
+      <div class="page-heading"><h1>Settings</h1><p>Free mobile-only mode.</p></div>
+      <div class="info-card"><strong>No backend required</strong><p>No Vercel, fal.ai, credits, or API key. Video assembly happens locally on your phone.</p></div>
+      <div class="info-card"><strong>Best for</strong><p>Kids videos, family slideshows, lyric reels, greetings, shorts, and simple social videos.</p></div>
+      <div class="info-card"><strong>Version</strong><p>Luffy AI Studio Free Mode v2.0</p></div>
     </section>
   </main>
 
   <nav class="bottom-nav">
     <button class="active" data-tab="home" onclick="openTab('home')"><b>⌂</b><span>Home</span></button>
     <button data-tab="create" onclick="openTab('create')"><b>✦</b><span>Create</span></button>
-    <button data-tab="library" onclick="openTab('library')"><b>▤</b><span>Videos</span></button>
+    <button data-tab="videos" onclick="openTab('videos')"><b>▤</b><span>Videos</span></button>
     <button data-tab="settings" onclick="openTab('settings')"><b>⚙</b><span>Settings</span></button>
   </nav>
 </div>
-
 <div id="toast" class="toast"></div>
 <script src="app.js"></script>
 </body>
