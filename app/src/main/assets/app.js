@@ -1,414 +1,315 @@
-let mode = 'text';
-let imageDataUrl = null;
-const historyKey = 'luffy_ai_history_v1';
-const backendKey = 'luffy_ai_backend_v1';
-const pollTimers = {};
-
 const $ = id => document.getElementById(id);
+let selectedImages = [];
+let musicFile = null;
+let lastVideoUrl = null;
+let lastObjectUrls = [];
+const historyKey = 'luffy_free_exports_v2';
 
-function openTab(tab) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.bottom-nav button').forEach(b => {
-    b.classList.toggle('active', b.dataset.tab === tab);
-  });
-  $(tab + 'Page').classList.add('active');
-
-  if (tab === 'home') renderRecent();
-  if (tab === 'library') renderLibrary();
-  if (tab === 'settings') $('backendUrl').value = getBackend();
-
-  window.scrollTo(0, 0);
+function openTab(tab){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.bottom-nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
+  $(tab+'Page').classList.add('active');
+  if(tab==='home') renderRecent();
+  if(tab==='videos') renderLibrary();
+  window.scrollTo(0,0);
 }
 
-function setModeAndOpen(nextMode) {
-  setMode(nextMode);
-  openTab('create');
-}
-
-function setMode(nextMode) {
-  mode = nextMode;
-  $('modeText').classList.toggle('active', mode === 'text');
-  $('modeImage').classList.toggle('active', mode === 'image');
-  $('imageInputWrap').classList.toggle('hidden', mode !== 'image');
-  $('aspectField').classList.toggle('hidden', mode === 'image');
-
-  $('prompt').placeholder = mode === 'text'
-    ? 'A tiny astronaut walks through a glowing forest at night, cinematic camera movement, soft fog...'
-    : 'Describe the motion: slowly turn toward the camera, gentle breeze, cinematic push-in...';
-}
-
-function getBackend() {
-  return (localStorage.getItem(backendKey) || '').replace(/\/$/, '');
-}
-
-function saveSettings() {
-  const url = $('backendUrl').value.trim().replace(/\/$/, '');
-
-  if (url && !/^https:\/\//i.test(url)) {
-    toast('Use an HTTPS backend URL');
-    return;
-  }
-
-  localStorage.setItem(backendKey, url);
-  updateBackendStatus();
-  toast(url ? 'Backend connected' : 'Backend removed');
-}
-
-function updateBackendStatus() {
-  const connected = Boolean(getBackend());
-  const el = $('backendStatus');
-  el.classList.toggle('connected', connected);
-  el.querySelector('span').textContent = connected ? 'Connected' : 'Not connected';
-}
-
-function toast(message) {
-  const el = $('toast');
-  el.textContent = message;
+function toast(msg){
+  const el=$('toast');
+  el.textContent=msg;
   el.classList.add('show');
   clearTimeout(window.__toastTimer);
-  window.__toastTimer = setTimeout(() => el.classList.remove('show'), 2300);
+  window.__toastTimer=setTimeout(()=>el.classList.remove('show'),2300);
 }
 
-function getHistory() {
-  try {
-    return JSON.parse(localStorage.getItem(historyKey) || '[]');
-  } catch {
-    return [];
-  }
+function escapeHtml(s=''){
+  return s.replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
 }
-
-function saveHistory(items) {
-  localStorage.setItem(historyKey, JSON.stringify(items.slice(0, 50)));
+function slugify(s=''){
+  return s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'').slice(0,40);
 }
-
-function addHistory(item) {
-  const items = getHistory();
-  items.unshift(item);
-  saveHistory(items);
+function fmtTime(ts){
+  const d=new Date(ts);
+  return d.toLocaleDateString()+' · '+d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+}
+function getHistory(){
+  try{return JSON.parse(localStorage.getItem(historyKey)||'[]')}catch{return[]}
+}
+function saveHistory(items){
+  localStorage.setItem(historyKey,JSON.stringify(items.slice(0,20).map(x=>({...x,downloadUrl:null}))));
+}
+function itemHtml(item){
+  return '<div class="generation-item">'+
+    '<div class="generation-thumb">▶</div>'+
+    '<div class="generation-content"><strong>'+escapeHtml(item.title)+'</strong>'+
+    '<div class="generation-meta"><span>'+item.count+' scenes</span><span>•</span><span>'+item.aspectRatio+'</span><span>•</span><span>'+fmtTime(item.createdAt)+'</span></div>'+
+    '<div class="row-actions">'+
+      (item.downloadUrl?'<a href="'+item.downloadUrl+'" download="'+(slugify(item.title)||'video')+'.webm">Download</a><a href="'+item.downloadUrl+'" target="_blank">Play</a>':'<button disabled>Previous session</button>')+
+    '</div></div></div>';
+}
+function renderRecent(){
+  const items=getHistory().slice(0,3);
+  $('recentList').innerHTML=items.length?items.map(itemHtml).join(''):'<div class="empty">Your exported videos will appear here.</div>';
+}
+function renderLibrary(){
+  const items=getHistory();
+  $('libraryList').innerHTML=items.length?items.map(itemHtml).join(''):'<div class="empty">No exports yet. Make your first free video.</div>';
+}
+function clearExports(){
+  localStorage.removeItem(historyKey);
   renderRecent();
   renderLibrary();
+  toast('Export history cleared');
+}
+function fillSampleCaptions(){
+  $('captions').value='Welcome to our special story\nBeautiful moments together\nMemories we will always keep';
 }
 
-function updateHistory(id, patch) {
-  const items = getHistory().map(item => item.id === id ? {...item, ...patch} : item);
-  saveHistory(items);
-  renderRecent();
-  renderLibrary();
-}
-
-function escapeHtml(value = '') {
-  return value.replace(/[&<>'"]/g, c => ({
-    '&':'&amp;',
-    '<':'&lt;',
-    '>':'&gt;',
-    "'":'&#39;',
-    '"':'&quot;'
-  }[c]));
-}
-
-function timeAgo(timestamp) {
-  const seconds = Math.floor((Date.now() - timestamp) / 1000);
-  if (seconds < 60) return 'just now';
-  if (seconds < 3600) return Math.floor(seconds / 60) + 'm ago';
-  if (seconds < 86400) return Math.floor(seconds / 3600) + 'h ago';
-  return new Date(timestamp).toLocaleDateString();
-}
-
-function itemHtml(item) {
-  const statusClass = item.status === 'COMPLETED'
-    ? 'done'
-    : item.status === 'FAILED' ? 'failed' : 'processing';
-
-  const statusLabel = item.status === 'COMPLETED'
-    ? 'Ready'
-    : item.status === 'FAILED'
-      ? 'Failed'
-      : item.status === 'IN_QUEUE' ? 'Queued' : 'Generating';
-
-  const media = item.videoUrl
-    ? '<video src="' + item.videoUrl + '" muted playsinline preload="metadata"></video>'
-    : (item.mode === 'image' ? '▧' : '✦');
-
-  const actions = item.videoUrl
-    ? '<div class="row-actions">' +
-        '<a href="' + item.videoUrl + '" target="_blank">Play</a>' +
-        '<a href="' + item.videoUrl + '" download>Download</a>' +
-        '<button onclick="copyVideo(\'' + item.videoUrl + '\')">Copy link</button>' +
-      '</div>'
-    : '';
-
-  return '<div class="generation-item">' +
-    '<div class="generation-thumb">' + media + '</div>' +
-    '<div class="generation-content">' +
-      '<strong>' + escapeHtml(item.prompt) + '</strong>' +
-      '<div class="generation-meta">' +
-        '<span>' + (item.mode === 'image' ? 'Image → Video' : 'Text → Video') + '</span>' +
-        '<span>•</span>' +
-        '<span>' + item.duration + 's</span>' +
-        '<span>•</span>' +
-        '<span>' + timeAgo(item.createdAt) + '</span>' +
-        '<span class="badge ' + statusClass + '">' + statusLabel + '</span>' +
-      '</div>' +
-      actions +
-    '</div>' +
-  '</div>';
-}
-
-function renderRecent() {
-  const items = getHistory().slice(0, 3);
-  $('recentList').innerHTML = items.length
-    ? items.map(itemHtml).join('')
-    : '<div class="empty">Your generated videos will appear here.</div>';
-}
-
-function renderLibrary() {
-  const items = getHistory();
-  $('libraryList').innerHTML = items.length
-    ? items.map(itemHtml).join('')
-    : '<div class="empty">No generations yet. Create your first AI video.</div>';
-}
-
-function clearFinished() {
-  const pending = getHistory().filter(x => x.status !== 'COMPLETED' && x.status !== 'FAILED');
-  saveHistory(pending);
-  renderLibrary();
-  renderRecent();
-  toast('Finished items cleared');
-}
-
-async function copyVideo(url) {
-  try {
-    await navigator.clipboard.writeText(url);
-    toast('Video link copied');
-  } catch {
-    window.open(url, '_blank');
-  }
-}
-
-function enhancePrompt() {
-  const box = $('prompt');
-  let prompt = box.value.trim();
-
-  if (!prompt) {
-    toast('Write a basic idea first');
+$('imageInput').addEventListener('change', async e=>{
+  const files=Array.from(e.target.files||[]).filter(f=>f.type.startsWith('image/'));
+  if(!files.length){
+    selectedImages=[];
+    renderImages();
     return;
   }
-
-  const addition = mode === 'text'
-    ? ' Cinematic composition, natural realistic motion, detailed lighting, subtle depth of field, smooth camera movement, consistent subject appearance, high visual coherence.'
-    : ' Preserve the subject identity and facial features. Natural realistic movement, subtle secondary motion, smooth cinematic camera movement, stable background details and consistent lighting.';
-
-  if (!prompt.toLowerCase().includes('cinematic')) {
-    prompt += addition;
+  try{
+    selectedImages=await Promise.all(files.map(fileToDataUrl));
+    renderImages();
+    toast(files.length+' image(s) selected');
+  }catch{
+    toast('Could not read one of the images');
   }
+});
 
-  box.value = prompt.slice(0, 1500);
-  toast('Prompt enhanced');
+$('musicInput').addEventListener('change', e=>{
+  musicFile=(e.target.files||[])[0]||null;
+  $('musicSummary').textContent=musicFile?musicFile.name:'No music selected';
+});
+
+function renderImages(){
+  $('imageSummary').textContent=selectedImages.length?selectedImages.length+' image(s) selected':'No images selected';
+  $('thumbStrip').innerHTML=selectedImages.map(src=>'<img src="'+src+'" alt="Selected image">').join('');
 }
 
-function clearImage() {
-  imageDataUrl = null;
-  $('imageInput').value = '';
-  $('imagePreview').src = '';
-  $('imagePreview').classList.add('hidden');
-  $('imagePlaceholder').classList.remove('hidden');
-  $('removeImage').classList.add('hidden');
-}
-
-async function resizeImage(file) {
-  const source = await fileToDataUrl(file);
-  const img = new Image();
-
-  return new Promise((resolve, reject) => {
-    img.onload = () => {
-      const maxSide = 1280;
-      let width = img.width;
-      let height = img.height;
-
-      if (Math.max(width, height) > maxSide) {
-        const scale = maxSide / Math.max(width, height);
-        width = Math.round(width * scale);
-        height = Math.round(height * scale);
-      }
-
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, width, height);
-      resolve(canvas.toDataURL('image/jpeg', 0.84));
-    };
-
-    img.onerror = reject;
-    img.src = source;
-  });
-}
-
-function fileToDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
+function fileToDataUrl(file){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=()=>resolve(reader.result);
+    reader.onerror=reject;
     reader.readAsDataURL(file);
   });
 }
 
-async function generateVideo() {
-  const backend = getBackend();
-  const prompt = $('prompt').value.trim();
+function loadImage(src){
+  return new Promise((resolve,reject)=>{
+    const img=new Image();
+    img.onload=()=>resolve(img);
+    img.onerror=reject;
+    img.src=src;
+  });
+}
 
-  if (!backend) {
-    openTab('settings');
-    toast('Connect your backend first');
-    return;
-  }
+function getCanvasSize(aspectRatio, quality){
+  const high=quality==='high';
+  if(aspectRatio==='16:9') return high?{w:1280,h:720}:{w:960,h:540};
+  if(aspectRatio==='1:1') return high?{w:900,h:900}:{w:720,h:720};
+  return high?{w:720,h:1280}:{w:540,h:960};
+}
 
-  if (!prompt) {
-    toast('Write a prompt first');
-    return;
-  }
+function drawCover(ctx,img,cw,ch,progress,index){
+  const scale=Math.max(cw/img.width,ch/img.height)*(1+0.075*progress);
+  const dw=img.width*scale;
+  const dh=img.height*scale;
+  const panX=(index%2===0?-1:1)*(cw*0.025)*progress;
+  const panY=(index%3===0?1:-1)*(ch*0.018)*progress;
+  ctx.drawImage(img,(cw-dw)/2+panX,(ch-dh)/2+panY,dw,dh);
+}
 
-  if (mode === 'image' && !imageDataUrl) {
-    toast('Choose an image first');
-    return;
-  }
+function wrapText(ctx,text,x,y,maxWidth,lineHeight){
+  const words=String(text).split(/\s+/);
+  let line='';
+  const lines=[];
+  words.forEach(word=>{
+    const test=line?line+' '+word:word;
+    if(ctx.measureText(test).width>maxWidth&&line){
+      lines.push(line);
+      line=word;
+    }else line=test;
+  });
+  if(line) lines.push(line);
+  const shown=lines.slice(0,3);
+  const startY=y-((shown.length-1)*lineHeight)/2;
+  shown.forEach((ln,i)=>ctx.fillText(ln,x,startY+i*lineHeight));
+}
 
-  const button = $('generateBtn');
-  button.disabled = true;
-  button.innerHTML = '<span>◌</span> Submitting...';
+function drawCaption(ctx,caption,title,cw,ch){
+  const grad=ctx.createLinearGradient(0,ch*0.56,0,ch);
+  grad.addColorStop(0,'rgba(0,0,0,0)');
+  grad.addColorStop(1,'rgba(0,0,0,0.75)');
+  ctx.fillStyle=grad;
+  ctx.fillRect(0,ch*0.54,cw,ch*0.46);
 
-  const localId = 'local_' + Date.now();
-  const item = {
-    id: localId,
-    requestId: null,
-    prompt,
-    mode,
-    duration: Number($('duration').value),
-    resolution: $('resolution').value,
-    aspectRatio: $('aspectRatio').value,
-    status: 'IN_QUEUE',
-    createdAt: Date.now(),
-    videoUrl: null
+  ctx.textAlign='center';
+  ctx.fillStyle='white';
+  ctx.font='700 '+Math.max(24,Math.round(cw*0.047))+'px sans-serif';
+  wrapText(ctx,caption||title||'My Video',cw/2,ch*0.83,cw*0.82,Math.max(30,cw*0.058));
+
+  ctx.font='500 '+Math.max(13,Math.round(cw*0.021))+'px sans-serif';
+  ctx.fillStyle='rgba(255,255,255,.72)';
+  ctx.fillText('Luffy AI Studio Free Mode',cw/2,ch*0.95);
+}
+
+async function makeAudioTrack(file){
+  if(!file || !window.AudioContext) return {tracks:[],cleanup:()=>{}};
+  const audioUrl=URL.createObjectURL(file);
+  lastObjectUrls.push(audioUrl);
+  const audio=new Audio(audioUrl);
+  const AudioCtx=window.AudioContext||window.webkitAudioContext;
+  const audioCtx=new AudioCtx();
+  await audioCtx.resume().catch(()=>{});
+  const source=audioCtx.createMediaElementSource(audio);
+  const dest=audioCtx.createMediaStreamDestination();
+  source.connect(dest);
+  audio.loop=false;
+  return {
+    tracks:dest.stream.getAudioTracks(),
+    start:()=>audio.play().catch(()=>{}),
+    stop:()=>{audio.pause();audio.currentTime=0;},
+    cleanup:()=>{try{source.disconnect();audioCtx.close();}catch(e){}}
   };
+}
 
-  addHistory(item);
+async function exportVideo(){
+  const title=$('projectTitle').value.trim()||'My Free Video';
+  const captions=$('captions').value.split(/\n+/).map(x=>x.trim()).filter(Boolean);
+  const sceneDuration=Number($('sceneDuration').value||3);
+  const aspectRatio=$('aspectRatio').value;
+  const resolution=$('resolution').value;
 
-  try {
-    const response = await fetch(backend + '/api/submit', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        mode,
-        prompt,
-        duration: item.duration,
-        resolution: item.resolution,
-        aspectRatio: item.aspectRatio,
-        imageDataUrl: mode === 'image' ? imageDataUrl : undefined
-      })
-    });
+  if(!selectedImages.length){
+    toast('Please select at least one image');
+    return;
+  }
+  if(!window.MediaRecorder){
+    toast('This phone WebView does not support video recording');
+    return;
+  }
 
-    const data = await response.json();
+  const btn=$('generateBtn');
+  btn.disabled=true;
+  btn.textContent='Preparing...';
 
-    if (!response.ok) {
-      throw new Error(data.error || 'Generation could not be submitted');
+  try{
+    const images=await Promise.all(selectedImages.map(loadImage));
+    const {w,h}=getCanvasSize(aspectRatio,resolution);
+    const canvas=document.createElement('canvas');
+    canvas.width=w;
+    canvas.height=h;
+    const ctx=canvas.getContext('2d',{alpha:false});
+    const videoStream=canvas.captureStream(30);
+
+    const audioBundle=await makeAudioTrack(musicFile);
+    const combinedTracks=[...videoStream.getVideoTracks(),...(audioBundle.tracks||[])];
+    const combinedStream=new MediaStream(combinedTracks);
+
+    const mimeCandidates=[
+      'video/webm;codecs=vp8,opus',
+      'video/webm;codecs=vp8',
+      'video/webm'
+    ];
+    let mimeType='';
+    for(const type of mimeCandidates){
+      if(MediaRecorder.isTypeSupported(type)){mimeType=type;break;}
     }
 
-    updateHistory(localId, {
-      requestId: data.requestId,
-      status: 'IN_QUEUE'
+    const recorder=mimeType?new MediaRecorder(combinedStream,{mimeType,videoBitsPerSecond:resolution==='high'?4500000:2500000}):new MediaRecorder(combinedStream);
+    const chunks=[];
+    recorder.ondataavailable=e=>{if(e.data&&e.data.size)chunks.push(e.data)};
+    const finished=new Promise((resolve,reject)=>{
+      recorder.onstop=resolve;
+      recorder.onerror=e=>reject(e.error||new Error('Recorder error'));
     });
 
-    toast('Generation started');
-    openTab('library');
-    startPolling(localId, data.requestId, mode);
-  } catch (error) {
-    updateHistory(localId, {
-      status: 'FAILED',
-      error: error.message
-    });
-    toast(error.message || 'Generation failed');
-  } finally {
-    button.disabled = false;
-    button.innerHTML = '<span>✦</span> Generate video';
-  }
-}
+    const totalMs=images.length*sceneDuration*1000;
+    const transitionMs=Math.min(450,sceneDuration*1000*0.2);
+    const start=performance.now();
 
-function startPolling(localId, requestId, itemMode) {
-  if (!requestId || pollTimers[localId]) return;
+    recorder.start(1000);
+    if(audioBundle.start) audioBundle.start();
+    btn.textContent='Exporting...';
 
-  const check = async () => {
-    const backend = getBackend();
-    if (!backend) return;
+    function frame(now){
+      const elapsed=now-start;
+      const sceneMs=sceneDuration*1000;
+      const sceneIndex=Math.min(images.length-1,Math.floor(elapsed/sceneMs));
+      const sceneElapsed=elapsed-sceneIndex*sceneMs;
+      const progress=Math.min(1,sceneElapsed/sceneMs);
 
-    try {
-      const url = backend + '/api/status?id=' +
-        encodeURIComponent(requestId) +
-        '&mode=' + encodeURIComponent(itemMode);
+      ctx.fillStyle='black';
+      ctx.fillRect(0,0,w,h);
+      drawCover(ctx,images[sceneIndex],w,h,progress,sceneIndex);
 
-      const response = await fetch(url);
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Status check failed');
+      if(sceneElapsed>sceneMs-transitionMs&&sceneIndex<images.length-1){
+        const alpha=(sceneElapsed-(sceneMs-transitionMs))/transitionMs;
+        ctx.globalAlpha=Math.max(0,Math.min(1,alpha));
+        drawCover(ctx,images[sceneIndex+1],w,h,0,sceneIndex+1);
+        ctx.globalAlpha=1;
       }
 
-      if (data.status === 'COMPLETED') {
-        clearInterval(pollTimers[localId]);
-        delete pollTimers[localId];
+      drawCaption(ctx,captions[sceneIndex]||'',title,w,h);
 
-        if (data.videoUrl) {
-          updateHistory(localId, {
-            status: 'COMPLETED',
-            videoUrl: data.videoUrl
-          });
-          toast('Your video is ready');
-        } else {
-          updateHistory(localId, {status: 'FAILED'});
-          toast('Video finished without an output URL');
-        }
-      } else if (data.status === 'FAILED') {
-        clearInterval(pollTimers[localId]);
-        delete pollTimers[localId];
-        updateHistory(localId, {status: 'FAILED'});
-        toast('Generation failed');
-      } else {
-        updateHistory(localId, {status: data.status || 'IN_PROGRESS'});
+      if(elapsed<totalMs){
+        requestAnimationFrame(frame);
+      }else{
+        setTimeout(()=>{
+          try{recorder.stop()}catch(e){}
+          if(audioBundle.stop)audioBundle.stop();
+          if(audioBundle.cleanup)audioBundle.cleanup();
+        },200);
       }
-    } catch (error) {
-      console.log('Polling error', error);
     }
-  };
 
-  check();
-  pollTimers[localId] = setInterval(check, 5000);
-}
+    requestAnimationFrame(frame);
+    await finished;
 
-function resumePending() {
-  getHistory()
-    .filter(item => item.requestId && item.status !== 'COMPLETED' && item.status !== 'FAILED')
-    .forEach(item => startPolling(item.id, item.requestId, item.mode));
-}
+    if(!chunks.length) throw new Error('No video data');
+    const blob=new Blob(chunks,{type:recorder.mimeType||'video/webm'});
+    if(lastVideoUrl) URL.revokeObjectURL(lastVideoUrl);
+    lastVideoUrl=URL.createObjectURL(blob);
+    lastObjectUrls.push(lastVideoUrl);
 
-$('imageInput').addEventListener('change', async event => {
-  const file = event.target.files && event.target.files[0];
-  if (!file) return;
+    const item={title,count:images.length,aspectRatio,createdAt:Date.now(),downloadUrl:lastVideoUrl};
+    const history=getHistory();
+    history.unshift(item);
+    saveHistory(history);
 
-  try {
-    toast('Preparing image...');
-    imageDataUrl = await resizeImage(file);
-    $('imagePreview').src = imageDataUrl;
-    $('imagePreview').classList.remove('hidden');
-    $('imagePlaceholder').classList.add('hidden');
-    $('removeImage').classList.remove('hidden');
-    toast('Image ready');
-  } catch {
-    clearImage();
-    toast('Could not read that image');
+    $('previewVideo').src=lastVideoUrl;
+    $('previewCard').classList.remove('hidden');
+    renderRecent();
+    renderLibrary();
+    openTab('videos');
+    toast('Video exported successfully');
+  }catch(err){
+    console.error(err);
+    toast('Export failed on this device');
+  }finally{
+    btn.disabled=false;
+    btn.textContent='✦ Export free video';
   }
-});
+}
 
-setMode('text');
+function downloadLastVideo(){
+  if(!lastVideoUrl){
+    toast('No video available yet');
+    return;
+  }
+  const a=document.createElement('a');
+  a.href=lastVideoUrl;
+  a.download=(slugify($('projectTitle').value||'my-video')||'my-video')+'.webm';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
 renderRecent();
 renderLibrary();
-updateBackendStatus();
-resumePending();
