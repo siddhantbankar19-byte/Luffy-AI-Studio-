@@ -1,49 +1,25 @@
-# Luffy AI Studio
+# Luffy AI Studio Free Mode
 
-Personal Android AI video creation app.
+A mobile-only Android video maker that works without a paid AI API.
 
-## Version 1
-- Text → Video
-- Image → Video
-- Local prompt enhancer
+## Version 2.0
+- Select multiple photos from your phone
+- Add slow pan/zoom animation
+- Add one caption per scene
+- Add optional background music
+- Export locally on the device
 - 9:16, 16:9 and 1:1 formats
-- 5s / 10s controls
-- 720p / 1080p controls
-- Local generation history
-- Secure backend pattern: the AI API key is never stored inside the APK
-- GitHub Actions APK build
+- Medium / High export sizes
+- No Vercel
+- No fal.ai
+- No credits
+- No API key
 
-## Architecture
-Android app → secure HTTPS backend → fal.ai → Pika 2.2
+## Important
+This is not generative text-to-video AI. It assembles and animates your own images locally on Android so there is no per-video fee.
 
-## Build the APK
-1. Open the repository **Actions** tab.
-2. Open **Build Android APK**.
-3. Run the workflow if a run is not already in progress.
-4. When it succeeds, open the run and download the **Luffy-AI-Studio-APK** artifact.
-5. Extract the ZIP and install **app-debug.apk**.
+## Build APK
+Open GitHub **Actions → Build Android APK**. The workflow runs automatically after pushes to main. When it succeeds, download the **Luffy-AI-Studio-APK** artifact and install the APK.
 
-## Connect AI generation
-The `backend` folder is ready for a Vercel deployment.
-
-1. Create a fal.ai API key.
-2. Deploy the `backend` folder to Vercel.
-3. Add `FAL_KEY` as a Vercel environment variable.
-4. Copy the deployed HTTPS URL.
-5. In Luffy AI Studio open **Settings → Backend URL** and save that URL.
-
-Never paste the fal.ai API key into the Android app or commit it to GitHub.
-
-## Current AI routes
-- Text-to-video: `fal-ai/pika/v2.2/text-to-video`
-- Image-to-video: `fal-ai/pika/v2.2/image-to-video`
-
-## Planned next features
-- Saved characters
-- Character consistency
-- Script → scenes
-- AI voices
-- Background music
-- Automatic subtitles
-- Multi-scene timeline
-- Final video stitching/export
+## Device support
+Local export uses Android WebView video-recording capabilities. Most recent Android phones should support WebM export. If a specific device does not, the export flow may need a native encoder in a later build.
